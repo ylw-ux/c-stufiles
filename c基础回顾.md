@@ -417,13 +417,15 @@ int main()
 
 ## ！指针与高维数组---数组名地址退化
 
+
+
 ### 1. 什么是「数组名地址退化」？
 
 定义：
 在 **函数传参、数组名赋值给指针、数组名做加减运算** 时，
 **数组名 不再代表「整个数组」，自动退化为 指向数组首元素的常量指针**。
 
-简单理解：
+**简单理解**：
 `int arr[5] = {1,2,3,4,5};`
 正常：`arr` 代表整个数组；
 传参时：`arr` → 等价于 `&arr[0]`（首元素地址）。
@@ -433,7 +435,7 @@ int main()
 
 传参时：`arr` → 等价于 `&arr[0]`（首行的地址，也就是第一个一维数组的地址），会退化为指向「长度为 5 的 int 数组」的指针，类型为 `int(*)[5]`（数组指针）。
 
-**理解**
+**硬件理解**
 `int arr[3][5];` 在内存里是==**一整块连续的纯数据空间**==，里面没有任何指针变量。
 
 它的真实定义是：一个长度为 3 的数组，数组的**每个元素本身就是一个长度为 5 的 int 一维数组**。
@@ -483,11 +485,11 @@ inputarr(int**arr 或者 int arr[][5] 或者 int (*arr) [5]){
 		}	
 	}
 }
-printarr(int**arr 或者 int arr[][5] 或者 int (*arr) [5]){
-	for(int i =0;i<10;i++){
+printarr( I: int arr[][5] 或者 II: int**arr 或者 III: int (*arr) [5])
+{	for(int i =0;i<10;i++){
 		for(int j=0;j<5;j++){
-			printf("%d", arr[i][j]);或者
-			printf("%d", *(*(arr+i)+j)  );
+			printf("%d", arr[i][j]); I 或者
+			printf("%d", *(*(arr+i)+j)  ); II III 
 		}	
 	}
 }
@@ -500,7 +502,7 @@ printarr(int**arr 或者 int arr[][5] 或者 int (*arr) [5]){
 - `*(arr+i)+j` : 一个存了五个整数的数组的下一（j）个元素的地址
 - `*(*(arr+i)+j)` : 一个存了五个整数的数组的下一（j）个元素的值
  
-
+[[#指针退化的本质，在表达式中| 理解本质]]
 
 
 
@@ -528,3 +530,215 @@ struct Patient database[10000]; // 连续内存中，结构体一个接一个存
 [[#！指针与高维数组---数组名地址退化]]
 
 
+
+
+# 指针退化的本质，在表达式中
+
+## 初始化
+`int a = 1;`
+第一天就会写的代码，到底有没有理解它的本质？
+这是一个初始化表达式，左边是变量定义的语法，右边是初始化的值。
+这里的等号并不充当使它成为一个表达式的作用，这只是一个变量的定义。同时它不是表达式，它也不会有返回值。
+## 表达式
+再写下`a = 100;`
+就是一个表达式，它在编译时会发生两个事情。
+第一：使a被赋值为100，
+第二：有一个返回值，等于赋值完成后左操作数（也就是 `a`）的值，即 100。
+所以
+```C
+int a=1;
+a=100;
+if(a=0){
+	printf("hello");
+}
+int b = 99;
+while(a = b = 1){
+	printf("hello");
+}
+```
+if的语句会不会执行？答案是不会
+等于0是一个表达式，它的返回值是0
+相当于if( 0 )
+while?
+会相当于while( 1 )
+从右往左读，先发生了 b = 1,它的返回值为1
+然后发生了a = (b = 1的返回值) 。最终得到a = 1;
+即为1
+
+同样的表示还有比如函数 逻辑运算符 ，我们有一个函数int nember（），它的return值是1，那
+```C
+int a = 1;
+while( a = number()) --> while( 1 )
+while( a != number())--> while( 0 )
+a和函数的返回值都是1，它们不等于吗？他们不是，所以这个表达式返回0
+```
+
+这样子就可以很顺理其然地推断出数组名在表达式中的时候，它会退化吧
+eg：
+ ```C
+ int array1[3] = {1,2,3};
+ 这里array1表示为 一个 int[3];
+ 
+ int array2[3] = {1.2.3};  对
+ int array2[3] = array1; 不对
+ 这里array表示为 &array1[0];
+ ```
+## 统一规则（一 / 二维通用）
+
+1. **定义 / 声明语境下**：数组名就是数组本身，类型是完整的数组类型
+    
+    - 一维 `int arr[3];` → arr 类型是 `int[3]`，表示整个长度为 3 的 int 数组
+    - 二维 `int arr[3][4];` → arr 类型是 `int[3][4]`，表示整个 3 行 4 列的二维数组
+    
+2. **绝大多数表达式语境下**：数组名会发生「数组 → 指向首元素的指针」的隐式转换（退化），且**只退一层**
+3. **三个例外不退化**：`sizeof(数组名)`、`&数组名`、字符串字面量初始化字符数组
+
+这是最容易搞错的核心点，也是和一维的唯一区别：
+
+- 一维数组的首元素是 `int` 类型的单个变量 → 退化后是 `int*`（指向 int 的指针）
+- 二维数组的首元素是 `int[4]` 类型的**一整行一维数组** → 退化后是 `int (*)[4]`（指向长度为 4 的 int 数组的指针，简称「数组指针」）
+- 一个简单的程序便于理解
+```C
+#include<stdio.h>
+void pr (int *p);
+int main (){
+	int num[3] = {1,22,333}; 
+	pr(num);
+	return 0;
+}
+
+void pr (int *p){
+	int i;
+	for(i = 0;i<3;i++){
+		printf("%d\n",*(p+i));
+	}
+}
+```
+# 数组查找算法
+
+## 顺序查找（无序数组通用）
+```C
+# include<stdio.h>
+
+int check(int arr[10],int size,int key);
+
+int main ( ){
+	int size =10;
+	int number[10]= {3,4,1,2,1,33,5,677,8,9};
+	int key = 2;
+	int rul = check(number,size,key);
+	if(number[rul] == key)
+		printf("%d",rul);
+	else
+		printf("worse");
+	return 0;
+}
+
+
+int check(int arr[10],int size,int key){
+	int i ;
+	arr[0] = key;
+	for(i = size-1;arr[i] != key;i--);
+	return i;
+
+} 
+```
+
+## 二分查找必须是有序数组
+```C
+# include<stdio.h>
+
+typedef struct arr{
+	int arrey [10];
+	int length ;
+} A;
+typedef A* Arr;
+int check(Arr p,int key);
+
+int main(){
+	A array = { {1,2,3,4,5,6,7,8,9,10}, 10 };
+	int rul = check(&array,8);
+	printf("%d",rul);
+	return 0;
+}
+  
+int check(Arr p,int key){
+	int l,r,Notfound;
+	Notfound = -1;
+	l=0;
+	r=p->length;
+	int n;
+	int nn;
+	while(l<=r){
+		//C语言里的数据初始化之后，不会随着后面的改变而改变
+		//C 语言里变量没有 “联动” 效果。你改了下标n，必须手动重新写一句 nn = p->arrey[n];，nn的值才会更新。 
+		n= (l+r)/2;
+		nn = p->arrey[n];
+		if(key == nn ){
+			return n;
+		}
+		if(key<nn){
+			r= n-1;
+		}
+		if(key >nn){
+			l= n+1;
+		}
+	}
+	return Notfound;
+}
+```
+
+
+# 基础排序
+
+```C
+# include<stdio.h>
+
+
+int main(){
+	int size =10;
+	int number[10]= {0,199,0,3,4,1,2,1,199,-1};
+
+
+//冒泡排序
+//	for(int i=0;i<size-1;i++ ){
+//		for(int j = 0;j<size-1-i;j++){
+//			if(number[j]>number[j+1]){
+//				int temp;
+//				temp = number[j+1];
+//				number[j+1] = number[j];
+//				number[j] = temp;
+//			}
+//		}
+//	}
+
+//选择排序
+//	for(int i=0;i<size-1;i++){
+//		for(int j=i+1;j<size;j++){
+//			if(number[j] < number[i]){
+//				int temp;
+//				temp = number[j];
+//				number[j] = number[i];
+//				number[i] = temp;
+//			}
+//		}
+//	} 
+
+
+//插入排序
+//	for(int i = 1;i<size;i++){
+//		int j =i-1;
+//		int key = number[i];
+//		while( j>=0 && number[j]>key){
+//			number[j+1] = number[j];
+//			j--;
+//		}
+//	 	number[j+1]  =key;
+//	} 
+
+	for(int k = 0;k<size;k++){
+		printf("%d\n",number[k]);
+	}
+	return 0;
+}
+```
